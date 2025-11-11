@@ -20,21 +20,32 @@ RUN npm run build
 # PHP 8.4 FPM image
 FROM php:8.4-cli-alpine
 
-# Install system dependencies and PHP extensions
-RUN apk add --no-cache \
-    git \
-    curl \
+# Install system dependencies (build dependencies)
+RUN apk add --no-cache --virtual .build-deps \
+    $PHPIZE_DEPS \
+    pkgconf \
+    sqlite-dev \
     libpng-dev \
     libzip-dev \
-    zip \
-    unzip \
-    sqlite \
     oniguruma-dev \
-    linux-headers \
     freetype-dev \
     jpeg-dev \
     libjpeg-turbo-dev \
-    $PHPIZE_DEPS
+    linux-headers
+
+# Install runtime dependencies
+RUN apk add --no-cache \
+    git \
+    curl \
+    zip \
+    unzip \
+    sqlite \
+    libpng \
+    libzip \
+    oniguruma \
+    freetype \
+    jpeg \
+    libjpeg-turbo
 
 # Install PHP extensions
 RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
@@ -47,6 +58,9 @@ RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
     bcmath \
     gd \
     zip
+
+# Clean up build dependencies
+RUN apk del .build-deps
 
 # Install Composer
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
