@@ -1,3 +1,8 @@
+#!/bin/bash
+
+# Script to create docker-compose.yml file
+
+cat > docker-compose.yml << 'EOF'
 version: '3.8'
 
 services:
@@ -36,3 +41,16 @@ services:
 networks:
   app-network:
     driver: bridge
+EOF
+
+echo "✅ docker-compose.yml created successfully!"
+echo "📝 File size: $(wc -l < docker-compose.yml) lines"
+echo "🔍 Validating..."
+docker-compose config > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+    echo "✅ File is valid!"
+else
+    echo "❌ File validation failed. Please check the content."
+    exit 1
+fi
+
