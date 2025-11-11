@@ -14,7 +14,7 @@ RUN npm run build
 FROM composer:2 AS vendor
 WORKDIR /app
 COPY composer.json composer.lock ./
-RUN --mount=type=cache,target=/tmp/cache COMPOSER_CACHE_DIR=/tmp/cache composer install --no-dev --prefer-dist --no-interaction --no-progress
+RUN --mount=type=cache,target=/tmp/cache COMPOSER_CACHE_DIR=/tmp/cache composer install --no-dev --prefer-dist --no-interaction --no-progress --no-scripts
 
 # ---------- Stage 3: php runtime ----------
 FROM php:${PHP_VERSION}-fpm-alpine AS app
@@ -25,7 +25,10 @@ RUN apk add --no-cache bash git curl zip unzip \
   libpng libpng-dev libjpeg-turbo-dev libwebp-dev \
   oniguruma-dev icu-data-full icu-dev libzip-dev libxml2-dev \
   sqlite-libs sqlite-dev \
-  shadow supervisor
+  shadow supervisor unzip
+
+# Install Composer
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 # PHP extensions
 RUN docker-php-ext-configure gd --with-jpeg --with-webp \
@@ -41,14 +44,18 @@ COPY docker/php.ini /usr/local/etc/php/conf.d/99-app.ini
 # Create user (www-data uid/gid 1000) for local dev compatibility
 RUN usermod -u 1000 www-data && groupmod -g 1000 www-data
 
-# Copy app
+# Copy app files
 COPY . /var/www/html
 
-# Copy vendor from stage
+# Copy vendor from composer stage
 COPY --from=vendor /app/vendor /var/www/html/vendor
 
-# Copy built assets
+# Copy built assets from node builder
+# Store in a location that won't be overwritten by volume mounts
 COPY --from=node_builder /app/public/build /var/www/html/public/build
+# Also copy to a backup location for entrypoint to use
+RUN mkdir -p /app_build/public/build && \
+    cp -r /var/www/html/public/build/* /app_build/public/build/ 2>/dev/null || true
 
 # Permissions
 RUN mkdir -p storage bootstrap/cache \

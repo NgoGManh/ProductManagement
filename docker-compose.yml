@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   app:
     build:
@@ -14,21 +12,34 @@ services:
       APP_DEBUG: "false"
       APP_URL: http://localhost
       LOG_CHANNEL: stderr
-      DB_CONNECTION: mysql
-      DB_HOST: db
-      DB_PORT: 3306
-      DB_DATABASE: product
-      DB_USERNAME: product
-      DB_PASSWORD: product
+      DB_CONNECTION: ${DB_CONNECTION:-mysql}
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_DATABASE: ${DB_DATABASE:-product}
+      DB_USERNAME: ${DB_USERNAME:-product}
+      DB_PASSWORD: ${DB_PASSWORD:-product}
       QUEUE_CONNECTION: database
       SESSION_DRIVER: file
       CACHE_DRIVER: file
       FILESYSTEM_DISK: local
     volumes:
-      - ./:/var/www/html
+      # Mount storage for persistent data
       - storage:/var/www/html/storage
+      # Mount .env for configuration
+      - ./.env:/var/www/html/.env:ro
+      # Mount code directories (allows code changes without rebuild)
+      - ./app:/var/www/html/app:ro
+      - ./config:/var/www/html/config:ro
+      - ./routes:/var/www/html/routes:ro
+      - ./resources:/var/www/html/resources:ro
+      - ./database:/var/www/html/database:ro
+      - ./bootstrap:/var/www/html/bootstrap:ro
+      # Mount public to host so nginx can serve it
+      # public/build will be copied from image backup to host in entrypoint
+      - ./public:/var/www/html/public
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
       - appnet
 
@@ -38,8 +49,11 @@ services:
     ports:
       - "8080:80"
     volumes:
-      - ./:/var/www/html:ro
-      - storage:/var/www/html/storage
+      # Mount public directory from host (includes built assets copied from app container)
+      - ./public:/var/www/html/public:ro
+      # Mount storage for uploaded files
+      - storage:/var/www/html/storage:ro
+      # Nginx config
       - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - app
@@ -56,18 +70,28 @@ services:
         NODE_VERSION: "20"
     container_name: product_worker
     environment:
-      DB_CONNECTION: mysql
-      DB_HOST: db
-      DB_PORT: 3306
-      DB_DATABASE: product
-      DB_USERNAME: product
-      DB_PASSWORD: product
+      DB_CONNECTION: ${DB_CONNECTION:-mysql}
+      DB_HOST: ${DB_HOST:-db}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_DATABASE: ${DB_DATABASE:-product}
+      DB_USERNAME: ${DB_USERNAME:-product}
+      DB_PASSWORD: ${DB_PASSWORD:-product}
       QUEUE_CONNECTION: database
     volumes:
-      - ./:/var/www/html
+      # Mount storage for persistent data
       - storage:/var/www/html/storage
+      # Mount .env for configuration
+      - ./.env:/var/www/html/.env:ro
+      # Mount code directories (same as app)
+      - ./app:/var/www/html/app:ro
+      - ./config:/var/www/html/config:ro
+      - ./routes:/var/www/html/routes:ro
+      - ./resources:/var/www/html/resources:ro
+      - ./database:/var/www/html/database:ro
+      - ./bootstrap:/var/www/html/bootstrap:ro
+      - ./public:/var/www/html/public:ro
     depends_on:
-      - db
+      - app
     networks:
       - appnet
 
@@ -75,17 +99,35 @@ services:
     image: mysql:8.0
     container_name: product_db
     environment:
-      MYSQL_DATABASE: product
-      MYSQL_USER: product
-      MYSQL_PASSWORD: product
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: ${DB_DATABASE:-product}
+      MYSQL_USER: ${DB_USERNAME:-product}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-product}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
     ports:
       - "33060:3306"
     volumes:
       - dbdata:/var/lib/mysql
     command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "localhost",
+          "-u",
+          "root",
+          "-p${MYSQL_ROOT_PASSWORD}",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     networks:
       - appnet
+    # Only start db service if using MySQL (remove profile to always start)
+    # profiles:
+    #   - mysql
 
 volumes:
   dbdata:
