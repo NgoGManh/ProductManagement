@@ -21,11 +21,15 @@ FROM php:${PHP_VERSION}-fpm-alpine AS app
 WORKDIR /var/www/html
 
 # System deps
-RUN apk add --no-cache bash git curl zip unzip libpng libpng-dev libjpeg-turbo-dev libwebp-dev oniguruma-dev icu-data-full icu-dev libzip-dev libxml2-dev shadow supervisor
+RUN apk add --no-cache bash git curl zip unzip \
+  libpng libpng-dev libjpeg-turbo-dev libwebp-dev \
+  oniguruma-dev icu-data-full icu-dev libzip-dev libxml2-dev \
+  sqlite-libs sqlite-dev \
+  shadow supervisor
 
 # PHP extensions
 RUN docker-php-ext-configure gd --with-jpeg --with-webp \
-  && docker-php-ext-install -j$(nproc) gd pdo pdo_mysql mbstring intl zip xml
+  && docker-php-ext-install -j$(nproc) gd pdo pdo_mysql pdo_sqlite mbstring intl zip xml
 
 # Opcache
 RUN docker-php-ext-install opcache
