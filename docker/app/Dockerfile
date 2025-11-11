@@ -1,51 +1,78 @@
-# -------- Stage 1: Composer deps
+# =========================
+# Stage 1: Composer vendor
+# =========================
 FROM composer:2 AS vendor
 WORKDIR /var/www/html
+
+# Cài vendor trước (chưa chạy scripts vì chưa có artisan)
 COPY composer.json composer.lock ./
-RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader
+RUN composer install \
+    --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts
 
-# Copy toàn bộ source để dump autoload chính xác theo nguồn
+# Copy source vào để tối ưu autoload (không chạy artisan ở stage này)
 COPY . .
-RUN composer dump-autoload --optimize
+RUN composer dump-autoload --classmap-authoritative
 
-# -------- Stage 2: Build front assets (Vite)
+# =========================
+# Stage 2: Build front assets (Vite)
+# =========================
 FROM node:20-alpine AS assets
 WORKDIR /app
+
+# Cài deps FE
 COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* .npmrc* ./
-# ưu tiên npm ci nếu có lock
 RUN if [ -f package-lock.json ]; then npm ci; else npm i; fi
+
+# Copy code FE và cấu hình build
 COPY resources ./resources
 COPY vite.config.* tailwind.config.* postcss.config.* ./
+
+# Build Vite -> public/build
 RUN npm run build
 
-# -------- Stage 3: PHP-FPM runtime
-FROM php:8.3-fpm-alpine
+# =========================
+# Stage 3: PHP-FPM runtime
+# =========================
+FROM php:8.4-fpm-alpine
 
-# extensions: pdo_mysql, intl, gd, zip, opcache
-RUN apk add --no-cache icu-dev libzip-dev oniguruma-dev libpng-dev libjpeg-turbo-dev freetype-dev bash \
- && docker-php-ext-configure gd --with-freetype --with-jpeg \
- && docker-php-ext-install -j$(nproc) pdo_mysql intl gd zip opcache
+# Cài extensions cần thiết
+RUN apk add --no-cache \
+      icu-dev libzip-dev oniguruma-dev \
+      libpng-dev libjpeg-turbo-dev freetype-dev bash \
+  && docker-php-ext-configure gd --with-freetype --with-jpeg \
+  && docker-php-ext-install -j$(nproc) pdo_mysql intl gd zip opcache
 
-# Configure PHP
-COPY docker/app/php.ini /usr/local/etc/php/conf.d/app.ini
+# (Tuỳ chọn) Redis extension nếu bạn dùng REDIS_CLIENT=phpredis
+# RUN apk add --no-cache $PHPIZE_DEPS && pecl install redis && docker-php-ext-enable redis
 
 WORKDIR /var/www/html
 
-# Copy source
+# (Tuỳ chọn) Tạo cấu hình PHP cơ bản
+RUN { \
+  echo "memory_limit=512M"; \
+  echo "upload_max_filesize=32M"; \
+  echo "post_max_size=32M"; \
+  echo "opcache.enable=1"; \
+  echo "opcache.enable_cli=1"; \
+  echo "opcache.validate_timestamps=0"; \
+  echo "opcache.max_accelerated_files=20000"; \
+} > /usr/local/etc/php/conf.d/app.ini
+
+# Copy toàn bộ source code
 COPY . .
 
-# Copy vendor & build
+# Copy vendor & assets đã build từ các stage trước
 COPY --from=vendor /var/www/html/vendor ./vendor
-COPY --from=assets /app/resources ./resources
 COPY --from=assets /app/public ./public
+# (Nếu bạn build SSR hay có files FE khác cần giữ, copy thêm tại đây)
 
-# Quyền
+# Quyền thư mục cho Laravel
 RUN chown -R www-data:www-data storage bootstrap/cache \
  && chmod -R 775 storage bootstrap/cache
 
-# Health check optional
-HEALTHCHECK --interval=30s --timeout=3s CMD php -v || exit 1
+# Healthcheck nhẹ (tuỳ chọn)
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
+  CMD php -v >/dev/null || exit 1
 
-# php-fpm lắng trên 9000
 EXPOSE 9000
 CMD ["php-fpm", "-F"]
