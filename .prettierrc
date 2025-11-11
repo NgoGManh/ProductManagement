@@ -1,0 +1,39 @@
+{
+  "semi": true,
+  "singleQuote": true,
+  "printWidth": 100,
+  "tabWidth": 2,
+  "useTabs": false,
+  "trailingComma": "es5",
+  "bracketSpacing": true,
+  "arrowParens": "always",
+  "endOfLine": "lf",
+  "plugins": ["@prettier/plugin-php", "@trivago/prettier-plugin-sort-imports"],
+  "importOrder": ["^react(.*)$", "<THIRD_PARTY_MODULES>", "^@/(.*)$", "^[./]"],
+  "importOrderSeparation": true,
+  "importOrderSortSpecifiers": true,
+  "overrides": [
+    {
+      "files": ["*.php"],
+      "options": {
+        "tabWidth": 4,
+        "singleQuote": false,
+        "phpVersion": "8.2",
+        "printWidth": 120
+      }
+    },
+    {
+      "files": ["*.blade.php"],
+      "options": {
+        "parser": "html",
+        "tabWidth": 4
+      }
+    },
+    {
+      "files": ["*.json"],
+      "options": {
+        "printWidth": 100
+      }
+    }
+  ]
+}
