@@ -1,0 +1,96 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      args:
+        PHP_VERSION: "8.4"
+        NODE_VERSION: "20"
+    container_name: product_app
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_URL: http://localhost
+      LOG_CHANNEL: stderr
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: product
+      DB_USERNAME: product
+      DB_PASSWORD: product
+      QUEUE_CONNECTION: database
+      SESSION_DRIVER: file
+      CACHE_DRIVER: file
+      FILESYSTEM_DISK: local
+    volumes:
+      - ./:/var/www/html
+      - storage:/var/www/html/storage
+    depends_on:
+      - db
+    networks:
+      - appnet
+
+  web:
+    image: nginx:stable-alpine
+    container_name: product_web
+    ports:
+      - "8080:80"
+    volumes:
+      - ./:/var/www/html:ro
+      - storage:/var/www/html/storage
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    networks:
+      - appnet
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      target: worker
+      args:
+        PHP_VERSION: "8.4"
+        NODE_VERSION: "20"
+    container_name: product_worker
+    environment:
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: product
+      DB_USERNAME: product
+      DB_PASSWORD: product
+      QUEUE_CONNECTION: database
+    volumes:
+      - ./:/var/www/html
+      - storage:/var/www/html/storage
+    depends_on:
+      - db
+    networks:
+      - appnet
+
+  db:
+    image: mysql:8.0
+    container_name: product_db
+    environment:
+      MYSQL_DATABASE: product
+      MYSQL_USER: product
+      MYSQL_PASSWORD: product
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - "33060:3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    networks:
+      - appnet
+
+volumes:
+  dbdata:
+  storage:
+
+networks:
+  appnet:
+    driver: bridge
