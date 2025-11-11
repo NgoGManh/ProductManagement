@@ -20,18 +20,6 @@ if [ ! -f ".env" ]; then
   cp .env.example .env || true
 fi
 
-# Copy public/build from image backup to mounted volume if it doesn't exist
-# This ensures built assets are available even when public is mounted from host
-BUILD_SOURCE="/app_build/public/build"
-if [ -d "$BUILD_SOURCE" ] && [ ! -z "$(ls -A $BUILD_SOURCE 2>/dev/null)" ]; then
-  if [ ! -d "./public/build" ] || [ -z "$(ls -A ./public/build 2>/dev/null)" ]; then
-    echo "Copying built assets from image to public/build..."
-    mkdir -p ./public/build
-    cp -r $BUILD_SOURCE/* ./public/build/ 2>/dev/null || true
-    echo "Built assets copied successfully"
-  fi
-fi
-
 # Wait for database to be ready (for MySQL)
 if [ "${DB_CONNECTION}" = "mysql" ]; then
   echo "Waiting for database..."
@@ -42,13 +30,5 @@ if [ "${DB_CONNECTION}" = "mysql" ]; then
   echo "Database is up!"
 fi
 
-# Run artisan commands as www-data
-gosu www-data php artisan key:generate --force || true
-gosu www-data php artisan storage:link || true
-gosu www-data php artisan migrate --force || true
-gosu www-data php artisan config:cache || true
-gosu www-data php artisan route:cache || true
-gosu www-data php artisan view:cache || true
-
-# Switch to www-data for the main command (php-fpm)
-exec gosu www-data "$@"
+# Start supervisord (runs as root, but programs run as www-data)
+exec /usr/bin/supervisord -c /etc/supervisord.conf

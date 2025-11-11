@@ -33,7 +33,9 @@ services:
       - ./routes:/var/www/html/routes:ro
       - ./resources:/var/www/html/resources:ro
       - ./database:/var/www/html/database:ro
-      - ./bootstrap:/var/www/html/bootstrap:ro
+      # Don't mount bootstrap - let it use the one from image with proper permissions
+      # bootstrap/cache needs to be writable for Laravel package manifest
+      # - ./bootstrap:/var/www/html/bootstrap:ro
       # Mount public to host so nginx can serve it
       # public/build will be copied from image backup to host in entrypoint
       - ./public:/var/www/html/public
@@ -88,7 +90,9 @@ services:
       - ./routes:/var/www/html/routes:ro
       - ./resources:/var/www/html/resources:ro
       - ./database:/var/www/html/database:ro
-      - ./bootstrap:/var/www/html/bootstrap:ro
+      # Don't mount bootstrap - let it use the one from image with proper permissions
+      # bootstrap/cache needs to be writable for Laravel package manifest
+      # - ./bootstrap:/var/www/html/bootstrap:ro
       - ./public:/var/www/html/public:ro
     depends_on:
       - app

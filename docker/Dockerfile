@@ -25,7 +25,7 @@ RUN apk add --no-cache bash git curl zip unzip \
   libpng libpng-dev libjpeg-turbo-dev libwebp-dev \
   oniguruma-dev icu-data-full icu-dev libzip-dev libxml2-dev \
   sqlite-libs sqlite-dev \
-  shadow supervisor unzip
+  shadow supervisor unzip gosu
 
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
@@ -51,16 +51,15 @@ COPY . /var/www/html
 COPY --from=vendor /app/vendor /var/www/html/vendor
 
 # Copy built assets from node builder
-# Store in a location that won't be overwritten by volume mounts
 COPY --from=node_builder /app/public/build /var/www/html/public/build
 # Also copy to a backup location for entrypoint to use
 RUN mkdir -p /app_build/public/build && \
     cp -r /var/www/html/public/build/* /app_build/public/build/ 2>/dev/null || true
 
-# Permissions
-RUN mkdir -p storage bootstrap/cache \
+# Permissions - ensure bootstrap/cache and storage are writable
+RUN mkdir -p storage/framework/cache storage/framework/sessions storage/framework/views storage/logs bootstrap/cache \
   && chown -R www-data:www-data storage bootstrap/cache \
-  && chmod -R ug+rw storage bootstrap/cache
+  && chmod -R 775 storage bootstrap/cache
 
 # Supervisor for queue/scheduler (optional, used in worker image)
 COPY docker/supervisord.conf /etc/supervisord.conf
@@ -69,7 +68,9 @@ COPY docker/supervisord.conf /etc/supervisord.conf
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-USER www-data
+# Run as root so entrypoint can fix permissions, then switch to www-data
+USER root
+
 EXPOSE 9000
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["php-fpm"]
@@ -77,7 +78,10 @@ CMD ["php-fpm"]
 # ---------- Stage 4: worker image (queue + schedule) ----------
 FROM app AS worker
 USER root
-ENTRYPOINT ["/usr/bin/supervisord","-c","/etc/supervisord.conf"]
+
+# Worker entrypoint to fix permissions before starting supervisord
+COPY docker/worker-entrypoint.sh /worker-entrypoint.sh
+RUN chmod +x /worker-entrypoint.sh
+
+ENTRYPOINT ["/worker-entrypoint.sh"]
 CMD []
-
-
