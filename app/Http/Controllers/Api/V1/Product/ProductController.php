@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers\Api\V1\Product;
 
+use App\Exports\ProductsExport;
 use App\Http\Controllers\Controller;
 use App\Models\Product;
-use Illuminate\Http\Request;
+use App\Services\PdfService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Maatwebsite\Excel\Facades\Excel;
 
 /**
  * @OA\Tag(
@@ -331,6 +334,71 @@ class ProductController extends Controller
             "status" => "success",
             "message" => "Product status updated",
             "data" => ["active" => $product->active],
+        ]);
+    }
+
+    /**
+     * @OA\Get(
+     *   path="/api/v1/products/export/pdf",
+     *   summary="Export products to PDF",
+     *   description="Generate a PDF report for products and return the download URL.",
+     *   operationId="exportProductsPdf",
+     *   tags={"Products"},
+     *   security={{"bearerAuth":{}}},
+     *   @OA\Response(response=200, description="Export generated")
+     * )
+     */
+    public function exportPdf(PdfService $pdfService): JsonResponse
+    {
+        $products = Product::orderByDesc("created_at")->get();
+        $timestamp = now()->format("Ymd_His");
+        $relativePath = "pdfs/products-{$timestamp}.pdf";
+
+        $result = $pdfService->generate(
+            "exports.products",
+            [
+                "products" => $products,
+                "generatedAt" => now(),
+            ],
+            $relativePath,
+            [
+                "orientation" => "landscape",
+                "title" => "Products Report",
+            ],
+        );
+
+        return response()->json([
+            "status" => "success",
+            "message" => "Products exported to PDF successfully.",
+            "path" => $result["path"],
+            "url" => $result["url"],
+        ]);
+    }
+
+    /**
+     * @OA\Get(
+     *   path="/api/v1/products/export/excel",
+     *   summary="Export products to Excel",
+     *   description="Generate an Excel file for products and return the download URL.",
+     *   operationId="exportProductsExcel",
+     *   tags={"Products"},
+     *   security={{"bearerAuth":{}}},
+     *   @OA\Response(response=200, description="Export generated")
+     * )
+     */
+    public function exportExcel(): JsonResponse
+    {
+        $products = Product::orderByDesc("created_at")->get();
+        $timestamp = now()->format("Ymd_His");
+        $relativePath = "exports/products-{$timestamp}.xlsx";
+
+        Excel::store(new ProductsExport($products), $relativePath, "public");
+
+        return response()->json([
+            "status" => "success",
+            "message" => "Products exported to Excel successfully.",
+            "path" => $relativePath,
+            "url" => Storage::disk("public")->url($relativePath),
         ]);
     }
 }

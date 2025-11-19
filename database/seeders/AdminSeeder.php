@@ -10,8 +10,10 @@ class AdminSeeder extends Seeder
 {
     public function run(): void
     {
-        $role = Role::firstOrCreate(["name" => "admin"]);
-
+        $role = Role::firstOrCreate([
+            "name" => "admin",
+            "guard_name" => "api",
+            ]);
         $admin = User::firstOrCreate(
             ["email" => "admin@example.com"],
             [

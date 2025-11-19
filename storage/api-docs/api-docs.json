@@ -659,6 +659,46 @@
                 ]
             }
         },
+        "/api/v1/products/export/pdf": {
+            "get": {
+                "tags": [
+                    "Products"
+                ],
+                "summary": "Export products to PDF",
+                "description": "Generate a PDF report for products and return the download URL.",
+                "operationId": "exportProductsPdf",
+                "responses": {
+                    "200": {
+                        "description": "Export generated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/v1/products/export/excel": {
+            "get": {
+                "tags": [
+                    "Products"
+                ],
+                "summary": "Export products to Excel",
+                "description": "Generate an Excel file for products and return the download URL.",
+                "operationId": "exportProductsExcel",
+                "responses": {
+                    "200": {
+                        "description": "Export generated"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
         "/api/v1/users": {
             "get": {
                 "tags": [

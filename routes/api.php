@@ -44,6 +44,11 @@ Route::prefix("v1")
         // Product management routes
         // All authenticated users can view products
         Route::middleware(["auth:api"])->group(function () {
+            Route::get("products/export/pdf", [ProductController::class, "exportPdf"])->name("products.export.pdf");
+            Route::get("products/export/excel", [ProductController::class, "exportExcel"])->name(
+                "products.export.excel",
+            );
+
             Route::apiResource("products", ProductController::class)
                 ->only(["index", "show"])
                 ->names([
