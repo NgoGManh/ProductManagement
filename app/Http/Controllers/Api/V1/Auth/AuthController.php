@@ -20,7 +20,12 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * @OA\Server(
  *    url=L5_SWAGGER_CONST_HOST,
- *    description="Development Server"
+ *    description="Production Server"
+ * )
+ *
+ * @OA\Server(
+ *    url="http://localhost:8000",
+ *    description="Local Development Server"
  * )
  *
  * @OA\SecurityScheme(

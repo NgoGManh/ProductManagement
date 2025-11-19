@@ -88,8 +88,9 @@ return [
 
             /*
              * Edit to set the api's base path
+             * If null, will use APP_URL from .env
              */
-            "base" => env("L5_SWAGGER_BASE_PATH", null),
+            "base" => env("L5_SWAGGER_BASE_PATH", env("APP_URL", null)),
 
             /*
              * Absolute path to directories that should be excluded from scanning
@@ -312,7 +313,7 @@ return [
          * Constants which can be used in annotations
          */
         "constants" => [
-            "L5_SWAGGER_CONST_HOST" => env("L5_SWAGGER_CONST_HOST", "http://139.185.51.230"),
+            "L5_SWAGGER_CONST_HOST" => env("L5_SWAGGER_CONST_HOST", env("APP_URL", "http://localhost:8000")),
         ],
     ],
 ];
