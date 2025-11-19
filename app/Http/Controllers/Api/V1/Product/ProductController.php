@@ -348,7 +348,7 @@ class ProductController extends Controller
      *   @OA\Response(response=200, description="Export generated")
      * )
      */
-    public function exportPdf(PdfService $pdfService): JsonResponse
+    public function exportPdf(Request $request, PdfService $pdfService): JsonResponse
     {
         $products = Product::orderByDesc("created_at")->get();
         $timestamp = now()->format("Ymd_His");
@@ -367,11 +367,15 @@ class ProductController extends Controller
             ],
         );
 
+        // Generate URL using the request's scheme and host to ensure correct domain
+        $baseUrl = $request->getSchemeAndHttpHost();
+        $url = $baseUrl . "/storage/" . $result["path"];
+
         return response()->json([
             "status" => "success",
             "message" => "Products exported to PDF successfully.",
             "path" => $result["path"],
-            "url" => $result["url"],
+            "url" => $url,
         ]);
     }
 
@@ -386,7 +390,7 @@ class ProductController extends Controller
      *   @OA\Response(response=200, description="Export generated")
      * )
      */
-    public function exportExcel(): JsonResponse
+    public function exportExcel(Request $request): JsonResponse
     {
         $products = Product::orderByDesc("created_at")->get();
         $timestamp = now()->format("Ymd_His");
@@ -394,11 +398,15 @@ class ProductController extends Controller
 
         Excel::store(new ProductsExport($products), $relativePath, "public");
 
+        // Generate URL using the request's scheme and host to ensure correct domain
+        $baseUrl = $request->getSchemeAndHttpHost();
+        $url = $baseUrl . "/storage/" . $relativePath;
+
         return response()->json([
             "status" => "success",
             "message" => "Products exported to Excel successfully.",
             "path" => $relativePath,
-            "url" => Storage::disk("public")->url($relativePath),
+            "url" => $url,
         ]);
     }
 }

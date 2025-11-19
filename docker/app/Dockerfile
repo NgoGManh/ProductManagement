@@ -1,53 +1,72 @@
-# =========================
-# Stage 1: Composer vendor
-# =========================
-FROM composer:2 AS vendor
+# =========================================
+# Stage 1: PHP base with extensions & Composer
+# =========================================
+FROM php:8.4-fpm-alpine AS php-base
+
+# Cài đặt extensions Laravel cần
+RUN apk add --no-cache \
+    icu-dev libzip-dev oniguruma-dev libpng-dev libjpeg-turbo-dev freetype-dev bash git curl zip unzip \
+ && docker-php-ext-configure gd --with-freetype --with-jpeg \
+ && docker-php-ext-install -j$(nproc) pdo_mysql intl gd zip opcache \
+ && docker-php-ext-enable opcache
+
+# Cài Composer chính thức vào image
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
 WORKDIR /var/www/html
 
-# Cài vendor trước (chưa chạy scripts vì chưa có artisan)
+# =========================================
+# Stage 2: Cài vendor PHP
+# =========================================
+FROM php-base AS vendor
+
+WORKDIR /var/www/html
 COPY composer.json composer.lock ./
+
+# Cài vendor (không chạy artisan scripts ở đây)
 RUN composer install \
     --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts
 
-# Copy source vào để tối ưu autoload (không chạy artisan ở stage này)
+# Copy source tạm để dump autoload (không ảnh hưởng đến final build)
 COPY . .
 RUN composer dump-autoload --classmap-authoritative
 
-# =========================
-# Stage 2: Build front assets (Vite)
-# =========================
+# =========================================
+# Stage 3: Build Frontend (Vite)
+# =========================================
 FROM node:20-alpine AS assets
 WORKDIR /app
 
-# Cài deps FE
+# Cài deps frontend
 COPY package.json package-lock.json* pnpm-lock.yaml* yarn.lock* .npmrc* ./
 RUN if [ -f package-lock.json ]; then npm ci; else npm i; fi
 
-# Copy code FE và cấu hình build
+# Copy resources và configs build
 COPY resources ./resources
 COPY vite.config.* tailwind.config.* postcss.config.* ./
 
-# Build Vite -> public/build
+# Build ra public/build
 RUN npm run build
 
-# =========================
-# Stage 3: PHP-FPM runtime
-# =========================
-FROM php:8.4-fpm-alpine
-
-# Cài extensions cần thiết
-RUN apk add --no-cache \
-      icu-dev libzip-dev oniguruma-dev \
-      libpng-dev libjpeg-turbo-dev freetype-dev bash \
-  && docker-php-ext-configure gd --with-freetype --with-jpeg \
-  && docker-php-ext-install -j$(nproc) pdo_mysql intl gd zip opcache
-
-# (Tuỳ chọn) Redis extension nếu bạn dùng REDIS_CLIENT=phpredis
-# RUN apk add --no-cache $PHPIZE_DEPS && pecl install redis && docker-php-ext-enable redis
+# =========================================
+# Stage 4: Final runtime (PHP-FPM + Laravel)
+# =========================================
+FROM php-base AS runtime
 
 WORKDIR /var/www/html
 
-# (Tuỳ chọn) Tạo cấu hình PHP cơ bản
+# Copy toàn bộ source code Laravel
+COPY . .
+
+# Copy vendor và build assets từ các stage trước
+COPY --from=vendor /var/www/html/vendor ./vendor
+COPY --from=assets /app/public ./public
+
+# Thiết lập quyền cho storage & cache
+RUN chown -R www-data:www-data storage bootstrap/cache \
+ && chmod -R 775 storage bootstrap/cache
+
+# Thiết lập cấu hình PHP
 RUN { \
   echo "memory_limit=512M"; \
   echo "upload_max_filesize=32M"; \
@@ -58,19 +77,7 @@ RUN { \
   echo "opcache.max_accelerated_files=20000"; \
 } > /usr/local/etc/php/conf.d/app.ini
 
-# Copy toàn bộ source code
-COPY . .
-
-# Copy vendor & assets đã build từ các stage trước
-COPY --from=vendor /var/www/html/vendor ./vendor
-COPY --from=assets /app/public ./public
-# (Nếu bạn build SSR hay có files FE khác cần giữ, copy thêm tại đây)
-
-# Quyền thư mục cho Laravel
-RUN chown -R www-data:www-data storage bootstrap/cache \
- && chmod -R 775 storage bootstrap/cache
-
-# Healthcheck nhẹ (tuỳ chọn)
+# Healthcheck (tuỳ chọn)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
   CMD php -v >/dev/null || exit 1
 

@@ -92,8 +92,18 @@ export default function Dashboard() {
       setExportLinks((prev) => ({ ...prev, [type]: url }));
       toast.success(message ?? 'Export completed');
 
+      // For PDF, open in new tab
       if (type === 'pdf') {
         window.open(url, '_blank', 'noopener');
+      } else {
+        // For Excel, force download
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = url.split('/').pop() || 'products.xlsx';
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       }
     } catch (err: any) {
       const message = err.response?.data?.message ?? 'Export failed. Please try again.';
