@@ -34,7 +34,7 @@ return [
 
     "pdf" => [
         "enabled" => true,
-        "binary" => env("WKHTML_PDF_BINARY", env("WKHTMLTOPDF_BINARY", "/opt/homebrew/bin/wkhtmltopdf")),
+        'binary' => base_path('vendor/h4cc/wkhtmltopdf-amd64/bin/wkhtmltopdf-amd64'),
         "timeout" => false,
         "options" => [
             "encoding" => "UTF-8",
@@ -44,7 +44,7 @@ return [
 
     "image" => [
         "enabled" => true,
-        "binary" => env("WKHTML_IMG_BINARY", env("WKHTMLTOIMAGE_BINARY", "/opt/homebrew/bin/wkhtmltoimage")),
+        'binary' => base_path('vendor/h4cc/wkhtmltoimage-amd64/bin/wkhtmltoimage-amd64'),
         "timeout" => false,
         "options" => [],
         "env" => [],

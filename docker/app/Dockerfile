@@ -3,12 +3,13 @@
 # =========================================
 FROM php:8.4-fpm-alpine AS php-base
 
-# Cài đặt extensions Laravel cần
+# Cài đặt extensions Laravel cần (bao gồm XML cho Excel)
 RUN apk add --no-cache \
-    icu-dev libzip-dev oniguruma-dev libpng-dev libjpeg-turbo-dev freetype-dev bash git curl zip unzip \
+    icu-dev libzip-dev oniguruma-dev libpng-dev libjpeg-turbo-dev freetype-dev \
+    libxml2-dev bash git curl zip unzip \
  && docker-php-ext-configure gd --with-freetype --with-jpeg \
- && docker-php-ext-install -j$(nproc) pdo_mysql intl gd zip opcache \
- && docker-php-ext-enable opcache
+ && docker-php-ext-install -j$(nproc) pdo_mysql intl gd zip opcache xml \
+ && docker-php-ext-enable opcache xml
 
 # Cài Composer chính thức vào image
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer

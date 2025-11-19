@@ -6,8 +6,10 @@ use App\Models\Product;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\WithHeadings;
+use Maatwebsite\Excel\Concerns\WithStyles;
+use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
-class ProductsExport implements FromCollection, WithHeadings
+class ProductsExport implements FromCollection, WithHeadings, WithStyles
 {
     /**
      * @var \Illuminate\Support\Collection<int, Product>
@@ -41,5 +43,13 @@ class ProductsExport implements FromCollection, WithHeadings
     public function headings(): array
     {
         return ["ID", "Name", "Slug", "Price", "Stock", "Status", "Active", "Created At"];
+    }
+
+    public function styles(Worksheet $sheet)
+    {
+        return [
+            // Style the first row as bold text
+            1 => ["font" => ["bold" => true]],
+        ];
     }
 }

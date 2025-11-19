@@ -396,7 +396,49 @@ class ProductController extends Controller
         $timestamp = now()->format("Ymd_His");
         $relativePath = "exports/products-{$timestamp}.xlsx";
 
-        Excel::store(new ProductsExport($products), $relativePath, "public");
+        // Ensure directory exists
+        $disk = Storage::disk("public");
+        $directory = dirname($relativePath);
+        if ($directory !== ".") {
+            $disk->makeDirectory($directory);
+        }
+
+        // Store Excel file with explicit XLSX format
+        try {
+            Excel::store(new ProductsExport($products), $relativePath, "public", \Maatwebsite\Excel\Excel::XLSX);
+        } catch (\Exception $e) {
+            \Log::error("Excel export error: " . $e->getMessage());
+            return response()->json(
+                [
+                    "status" => "error",
+                    "message" => "Failed to create Excel file: " . $e->getMessage(),
+                ],
+                500,
+            );
+        }
+
+        // Verify file was created and has content
+        if (!$disk->exists($relativePath)) {
+            return response()->json(
+                [
+                    "status" => "error",
+                    "message" => "Excel file was not created.",
+                ],
+                500,
+            );
+        }
+
+        $fileSize = $disk->size($relativePath);
+        if ($fileSize === 0) {
+            $disk->delete($relativePath);
+            return response()->json(
+                [
+                    "status" => "error",
+                    "message" => "Excel file is empty.",
+                ],
+                500,
+            );
+        }
 
         // Generate URL using the request's scheme and host to ensure correct domain
         $baseUrl = $request->getSchemeAndHttpHost();
