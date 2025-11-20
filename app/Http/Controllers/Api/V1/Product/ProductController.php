@@ -350,33 +350,62 @@ class ProductController extends Controller
      */
     public function exportPdf(Request $request, PdfService $pdfService): JsonResponse
     {
-        $products = Product::orderByDesc("created_at")->get();
-        $timestamp = now()->format("Ymd_His");
-        $relativePath = "pdfs/products-{$timestamp}.pdf";
+        try {
+            $products = Product::orderByDesc("created_at")->get();
+            $timestamp = now()->format("Ymd_His");
+            $relativePath = "pdfs/products-{$timestamp}.pdf";
 
-        $result = $pdfService->generate(
-            "exports.products",
-            [
-                "products" => $products,
-                "generatedAt" => now(),
-            ],
-            $relativePath,
-            [
-                "orientation" => "landscape",
-                "title" => "Products Report",
-            ],
-        );
+            $result = $pdfService->generate(
+                "exports.products",
+                [
+                    "products" => $products,
+                    "generatedAt" => now(),
+                ],
+                $relativePath,
+                [
+                    "orientation" => "landscape",
+                    "title" => "Products Report",
+                ],
+            );
 
-        // Generate URL using the request's scheme and host to ensure correct domain
-        $baseUrl = $request->getSchemeAndHttpHost();
-        $url = $baseUrl . "/storage/" . $result["path"];
+            // Verify file exists on disk
+            $disk = Storage::disk("public");
+            if (!$disk->exists($result["path"])) {
+                \Log::error("PDF export: File not found after generation", [
+                    "path" => $result["path"],
+                    "full_path" => $disk->path($result["path"]),
+                ]);
+                return response()->json(
+                    [
+                        "status" => "error",
+                        "message" => "PDF file was not created.",
+                    ],
+                    500,
+                );
+            }
 
-        return response()->json([
-            "status" => "success",
-            "message" => "Products exported to PDF successfully.",
-            "path" => $result["path"],
-            "url" => $url,
-        ]);
+            // Generate URL using the request's scheme and host to ensure correct domain
+            $baseUrl = $request->getSchemeAndHttpHost();
+            $url = $baseUrl . "/storage/" . $result["path"];
+
+            return response()->json([
+                "status" => "success",
+                "message" => "Products exported to PDF successfully.",
+                "path" => $result["path"],
+                "url" => $url,
+            ]);
+        } catch (\Exception $e) {
+            \Log::error("PDF export error: " . $e->getMessage(), [
+                "trace" => $e->getTraceAsString(),
+            ]);
+            return response()->json(
+                [
+                    "status" => "error",
+                    "message" => "Failed to create PDF file: " . $e->getMessage(),
+                ],
+                500,
+            );
+        }
     }
 
     /**
@@ -407,7 +436,10 @@ class ProductController extends Controller
         try {
             Excel::store(new ProductsExport($products), $relativePath, "public", \Maatwebsite\Excel\Excel::XLSX);
         } catch (\Exception $e) {
-            \Log::error("Excel export error: " . $e->getMessage());
+            \Log::error("Excel export error: " . $e->getMessage(), [
+                "trace" => $e->getTraceAsString(),
+                "path" => $relativePath,
+            ]);
             return response()->json(
                 [
                     "status" => "error",

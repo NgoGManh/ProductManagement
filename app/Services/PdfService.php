@@ -42,7 +42,18 @@ class PdfService
             $disk->makeDirectory($directory);
         }
 
-        $disk->put($path, $pdf->output());
+        $pdfContent = $pdf->output();
+
+        if (empty($pdfContent)) {
+            throw new \RuntimeException("PDF generation failed: empty output");
+        }
+
+        $disk->put($path, $pdfContent);
+
+        // Verify file was created
+        if (!$disk->exists($path)) {
+            throw new \RuntimeException("PDF file was not created at path: {$path}");
+        }
 
         return [
             "path" => $path,

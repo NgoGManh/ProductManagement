@@ -73,7 +73,10 @@ COPY --from=assets /app/public ./public
 
 # Quyền cho storage & cache
 RUN chown -R www-data:www-data storage bootstrap/cache \
- && chmod -R 775 storage bootstrap/cache
+ && chmod -R 775 storage bootstrap/cache \
+ && mkdir -p storage/app/public/pdfs storage/app/public/exports \
+ && chown -R www-data:www-data storage/app/public \
+ && chmod -R 775 storage/app/public
 
 # Config PHP
 RUN { \
