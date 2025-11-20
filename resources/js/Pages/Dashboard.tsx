@@ -129,7 +129,7 @@ export default function Dashboard() {
                 disabled={exporting.pdf}
               >
                 <FileDown className="mr-2 h-4 w-4" />
-                📄 Xuất PDF
+                Xuất PDF
               </Button>
               <Button
                 variant="outline"
@@ -137,7 +137,7 @@ export default function Dashboard() {
                 disabled={exporting.excel}
               >
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
-                📊 Xuất Excel
+                Xuất Excel
               </Button>
             </div>
           </div>
